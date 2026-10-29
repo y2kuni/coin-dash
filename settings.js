@@ -11,5 +11,10 @@ window.COIN_DASH = {
   boostMultiplier: 1.8,
   boostSeconds: 3,
   boostCooldownSeconds: 8,
-  colors: { background: 0x101c31, player: 0x71e8ce, playerBoost: 0xd4fff5, coin: 0xffd166, drone: 0xff657a }
+  redCoinChance: 0.3,
+  redCoinBoostSeconds: 4,
+  colors: {
+    background: 0x101c31, player: 0x71e8ce, playerBoost: 0xd4fff5,
+    coin: 0xffd166, redCoin: 0xe63946, drone: 0xff657a
+  }
 };

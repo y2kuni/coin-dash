@@ -6,6 +6,7 @@ class CoinDash extends Phaser.Scene {
     const c = COIN_DASH;
     this.score = 0;
     this.finished = false;
+    this.coinIsRed = false;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.boostUntil = 0;
     this.boostReadyAt = 0; // when SPACE can trigger the next boost
@@ -39,6 +40,8 @@ class CoinDash extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.coin, () => {
       if (this.finished) return;
       this.score++;
+      // Red coins also give a short speed boost.
+      if (this.coinIsRed) this.boostPlayer(COIN_DASH.redCoinBoostSeconds);
       this.placeCoin();
     });
     this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
@@ -152,6 +155,11 @@ class CoinDash extends Phaser.Scene {
     } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 60);
     this.coin.setPosition(x, y);
     this.coin.body.reset(x, y);
+    // Some coins are red boost coins, drawn with a white ring.
+    this.coinIsRed = Math.random() < c.redCoinChance;
+    this.coin.setFillStyle(this.coinIsRed ? c.colors.redCoin : c.colors.coin);
+    if (this.coinIsRed) this.coin.setStrokeStyle(3, 0xffffff);
+    else this.coin.setStrokeStyle();
   }
 
   update() {
