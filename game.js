@@ -27,8 +27,9 @@ class CoinDash extends Phaser.Scene {
         x = Phaser.Math.Between(30, c.width - 30);
         y = Phaser.Math.Between(74, c.height - 30);
       } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 150);
-      const drone = this.add.rectangle(x, y, 26, 26, c.colors.drone);
+      const drone = this.createDrone(x, y, Phaser.Utils.Array.GetRandom(c.droneForms));
       this.drones.add(drone);
+      this.fitDroneBody(drone);
       drone.body.setCollideWorldBounds(true).setBounce(1, 1);
       const angle = Phaser.Math.DegToRad(Phaser.Math.Between(0, 359));
       drone.body.setVelocity(Math.cos(angle) * c.droneSpeed, Math.sin(angle) * c.droneSpeed);
@@ -42,6 +43,23 @@ class CoinDash extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
+  }
+
+  createDrone(x, y, form) {
+    const color = COIN_DASH.colors.drone;
+    let drone;
+    if (form === 'circle') drone = this.add.circle(x, y, 13, color);
+    else if (form === 'triangle') drone = this.add.triangle(x, y, 13, 0, 26, 26, 0, 26, color);
+    else if (form === 'diamond') drone = this.add.polygon(x, y, [13, 0, 26, 13, 13, 26, 0, 13], color);
+    else drone = this.add.rectangle(x, y, 26, 26, color);
+    drone.form = form;
+    return drone;
+  }
+
+  fitDroneBody(drone) {
+    // Pointed forms get a smaller hitbox so their empty corners don't catch the player.
+    if (drone.form === 'circle') drone.body.setCircle(13);
+    else if (drone.form === 'triangle' || drone.form === 'diamond') drone.body.setSize(18, 18, true);
   }
 
   placeCoin() {
