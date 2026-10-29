@@ -19,11 +19,18 @@ class CoinDash extends Phaser.Scene {
     this.coin.body.setCircle(9);
     this.placeCoin();
     this.drones = this.physics.add.group();
-    for (let i = 0; i < c.droneCount; i++) {
-      const drone = this.add.rectangle(90 + i * 270, 100, 26, 26, c.colors.drone);
+    const droneCount = Phaser.Math.Between(c.droneMin, c.droneMax);
+    for (let i = 0; i < droneCount; i++) {
+      // Spawn at a random spot well away from the player so the round doesn't end instantly.
+      let x, y;
+      do {
+        x = Phaser.Math.Between(30, c.width - 30);
+        y = Phaser.Math.Between(74, c.height - 30);
+      } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 150);
+      const drone = this.add.rectangle(x, y, 26, 26, c.colors.drone);
       this.drones.add(drone);
       drone.body.setCollideWorldBounds(true).setBounce(1, 1);
-      const angle = (35 + i * 105) * Math.PI / 180;
+      const angle = Phaser.Math.DegToRad(Phaser.Math.Between(0, 359));
       drone.body.setVelocity(Math.cos(angle) * c.droneSpeed, Math.sin(angle) * c.droneSpeed);
     }
     this.physics.add.overlap(this.player, this.coin, () => {
