@@ -8,5 +8,8 @@ window.COIN_DASH = {
   droneMin: 2, // each round spawns a random number of drones in [droneMin, droneMax]
   droneMax: 7,
   droneForms: ['quad', 'hex', 'racer', 'delta'],
-  colors: { background: 0x101c31, player: 0x71e8ce, coin: 0xffd166, drone: 0xff657a }
+  boostMultiplier: 1.8,
+  boostSeconds: 3,
+  boostCooldownSeconds: 8,
+  colors: { background: 0x101c31, player: 0x71e8ce, playerBoost: 0xd4fff5, coin: 0xffd166, drone: 0xff657a }
 };

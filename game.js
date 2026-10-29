@@ -7,6 +7,8 @@ class CoinDash extends Phaser.Scene {
     this.score = 0;
     this.finished = false;
     this.deadline = this.time.now + c.roundSeconds * 1000;
+    this.boostUntil = 0;
+    this.boostReadyAt = 0; // when SPACE can trigger the next boost
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
       c.colors.background, 1, 0x24334b, 0.45);
@@ -43,6 +45,26 @@ class CoinDash extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
+    this.input.keyboard.addCapture('SPACE'); // stop the page from scrolling
+    this.input.keyboard.on('keydown-SPACE', () => this.tryBoost());
+  }
+
+  boostPlayer(seconds) {
+    this.boostUntil = Math.max(this.boostUntil, this.time.now + seconds * 1000);
+  }
+
+  // SPACE boost: only when ready, then cooldown starts after the boost ends.
+  tryBoost() {
+    if (this.finished || this.time.now < this.boostReadyAt) return;
+    this.boostPlayer(COIN_DASH.boostSeconds);
+    this.boostReadyAt = this.boostUntil + COIN_DASH.boostCooldownSeconds * 1000;
+  }
+
+  boostLabel() {
+    const now = this.time.now;
+    if (now < this.boostUntil) return `Boost: ${Math.ceil((this.boostUntil - now) / 1000)}s`;
+    if (now < this.boostReadyAt) return `Boost: wait ${Math.ceil((this.boostReadyAt - now) / 1000)}s`;
+    return 'Boost: READY';
   }
 
   // Draw each drone form once into a texture (no image files needed).
@@ -138,10 +160,15 @@ class CoinDash extends Phaser.Scene {
       - Number(this.cursors.left.isDown || this.keys.A.isDown);
     const dy = Number(this.cursors.down.isDown || this.keys.S.isDown)
       - Number(this.cursors.up.isDown || this.keys.W.isDown);
-    const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(COIN_DASH.playerSpeed);
+    const boosted = this.time.now < this.boostUntil;
+    const speed = COIN_DASH.playerSpeed * (this.time.now < this.boostUntil ? COIN_DASH.boostMultiplier : 1);
+    const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(speed);
     this.player.body.setVelocity(direction.x, direction.y);
+    // Visual cue while boosted: brighter colour and slightly larger.
+    this.player.setFillStyle(boosted ? COIN_DASH.colors.playerBoost : COIN_DASH.colors.player);
+    this.player.setScale(boosted ? 1.2 : 1);
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
-    this.hud.setText(`Coins: ${this.score}                       Time: ${seconds}s`);
+    this.hud.setText(`Coins: ${this.score}        ${this.boostLabel()}        Time: ${seconds}s`);
     if (seconds === 0) this.finish('Time is up!');
     this.faceDrones();
   }
