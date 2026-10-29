@@ -18,6 +18,7 @@ class CoinDash extends Phaser.Scene {
     this.physics.add.existing(this.coin);
     this.coin.body.setCircle(9);
     this.placeCoin();
+    this.makeDroneTextures();
     this.drones = this.physics.add.group();
     const droneCount = Phaser.Math.Between(c.droneMin, c.droneMax);
     for (let i = 0; i < droneCount; i++) {
@@ -29,7 +30,6 @@ class CoinDash extends Phaser.Scene {
       } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 150);
       const drone = this.createDrone(x, y, Phaser.Utils.Array.GetRandom(c.droneForms));
       this.drones.add(drone);
-      this.fitDroneBody(drone);
       drone.body.setCollideWorldBounds(true).setBounce(1, 1);
       const angle = Phaser.Math.DegToRad(Phaser.Math.Between(0, 359));
       drone.body.setVelocity(Math.cos(angle) * c.droneSpeed, Math.sin(angle) * c.droneSpeed);
@@ -45,21 +45,79 @@ class CoinDash extends Phaser.Scene {
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
   }
 
+  // Draw each drone form once into a texture (no image files needed).
+  makeDroneTextures() {
+    const red = COIN_DASH.colors.drone, dark = 0xa83246, rotor = 0xffd6dc;
+    const draw = (key, w, h, paint) => {
+      if (this.textures.exists(key)) return;
+      const g = this.make.graphics({ add: false });
+      paint(g);
+      g.generateTexture(key, w, h);
+      g.destroy();
+    };
+    // Rotor: light ring with a red hub.
+    const rotorAt = (g, x, y, r) => {
+      g.lineStyle(2, rotor, 0.9).strokeCircle(x, y, r);
+      g.fillStyle(rotor, 0.25).fillCircle(x, y, r);
+      g.fillStyle(red, 1).fillCircle(x, y, 2);
+    };
+    // Arms radiating from the centre, with a rotor at each tip.
+    const multirotor = (g, size, arms, armWidth, rotorR, startDeg) => {
+      const m = size / 2, reach = m - rotorR - 1;
+      g.lineStyle(armWidth, dark, 1);
+      for (let i = 0; i < arms; i++) {
+        const a = (startDeg + i * 360 / arms) * Math.PI / 180;
+        g.lineBetween(m, m, m + Math.cos(a) * reach, m + Math.sin(a) * reach);
+      }
+      for (let i = 0; i < arms; i++) {
+        const a = (startDeg + i * 360 / arms) * Math.PI / 180;
+        rotorAt(g, m + Math.cos(a) * reach, m + Math.sin(a) * reach, rotorR);
+      }
+    };
+    draw('drone-quad', 32, 32, (g) => {
+      multirotor(g, 32, 4, 3, 6, 45);
+      g.fillStyle(red, 1).fillRoundedRect(10, 10, 12, 12, 3);
+      g.fillStyle(rotor, 1).fillCircle(20, 16, 1.5); // front light
+    });
+    draw('drone-hex', 34, 34, (g) => {
+      multirotor(g, 34, 6, 2, 5, 0);
+      g.fillStyle(red, 1).fillCircle(17, 17, 7);
+      g.lineStyle(2, dark, 1).strokeCircle(17, 17, 7);
+    });
+    draw('drone-racer', 30, 30, (g) => {
+      multirotor(g, 30, 4, 4, 5, 45);
+      g.fillStyle(red, 1).fillRect(9, 12, 12, 6);
+      g.fillStyle(dark, 1).fillRect(19, 13, 3, 4); // camera
+    });
+    draw('drone-delta', 34, 30, (g) => {
+      // Delta wing pointing right (+x), so rotation follows velocity.
+      g.fillStyle(red, 1).fillTriangle(33, 15, 3, 1, 3, 29);
+      g.fillStyle(dark, 1).fillTriangle(33, 15, 9, 11, 9, 19);
+      g.fillStyle(dark, 1).fillRect(1, 12, 5, 6); // pusher motor
+      g.lineStyle(2, rotor, 0.9).lineBetween(1, 8, 1, 22); // pusher prop
+    });
+  }
+
+  // Create one physics-enabled drone of the given form.
   createDrone(x, y, form) {
-    const color = COIN_DASH.colors.drone;
-    let drone;
-    if (form === 'circle') drone = this.add.circle(x, y, 13, color);
-    else if (form === 'triangle') drone = this.add.triangle(x, y, 13, 0, 26, 26, 0, 26, color);
-    else if (form === 'diamond') drone = this.add.polygon(x, y, [13, 0, 26, 13, 13, 26, 0, 13], color);
-    else drone = this.add.rectangle(x, y, 26, 26, color);
-    drone.form = form;
+    const key = this.textures.exists(`drone-${form}`) ? `drone-${form}` : 'drone-quad';
+    const drone = this.physics.add.image(x, y, key);
+    drone.droneForm = form;
+    this.fitDroneBody(drone);
     return drone;
   }
 
+  // Circular hitbox around the drone body, smaller than the arms/rotors.
   fitDroneBody(drone) {
-    // Pointed forms get a smaller hitbox so their empty corners don't catch the player.
-    if (drone.form === 'circle') drone.body.setCircle(13);
-    else if (drone.form === 'triangle' || drone.form === 'diamond') drone.body.setSize(18, 18, true);
+    const r = 11;
+    drone.body.setCircle(r, drone.width / 2 - r, drone.height / 2 - r);
+  }
+
+  // Turn each drone to face where it is flying (hitbox is a circle, so this is visual only).
+  faceDrones() {
+    this.drones.children.iterate((d) => {
+      if (d && d.body && d.body.speed > 1) d.rotation = Math.atan2(d.body.velocity.y, d.body.velocity.x);
+    });
   }
 
   placeCoin() {
@@ -85,6 +143,7 @@ class CoinDash extends Phaser.Scene {
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
     this.hud.setText(`Coins: ${this.score}                       Time: ${seconds}s`);
     if (seconds === 0) this.finish('Time is up!');
+    this.faceDrones();
   }
 
   finish(reason) {
